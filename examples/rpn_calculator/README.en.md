@@ -13,8 +13,8 @@ It is a calculator based on [Reverse Polish notation](https://en.wikipedia.org/w
 |Numbers|Input number|
 |=|Confirm entry|
 |AC|Initialize|
-|AC 長押し| Clear entry|
-|.|add a decimal point|
+|Long press on AC| Clear entry|
+|.|Add a decimal point|
 |+/-|Reverses the sign of entry|
 |+|Addition|
 |-|Subtraction|
@@ -24,6 +24,10 @@ It is a calculator based on [Reverse Polish notation](https://en.wikipedia.org/w
 ## Example of input
 
 ```
-[1][2][3][=][4][5][.][6][+/-][=][7][8][9][-][x]
+[1][2][3][=][3][4][.][5][+/-][=][7][8][9][-][x]
 ```
-The calculation is interpreted as **123 x (-45.6 - 789)**, yielding **-102655.8**.
+The calculation is interpreted as **123 x (-34.5 - 789)**, output **-92803.5**.
+
+
+## Notice
+This is an example of how Faces works and does not take into account calculation errors.

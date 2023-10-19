@@ -16,9 +16,9 @@
     [.]                : Decimal point
 
     ex)
-      Input : [1][2][3][=][4][5][.][6][+/-][=][7][8][9][-][x]
-      --> 123 x (-45.6 - 789)
-      --> -102655.8
+      Input : [1][2][3][=][3][4][.][5][+/-][=][7][8][9][-][x]
+      --> 123 x (-34.5 - 789)
+      --> -92803.5
 */
 #include <M5Unified.h>
 #include <gob_faces.hpp>
@@ -26,53 +26,65 @@
 #include <cstdlib>
 #include <WString.h>
 
-/*
-通常の計算式：「　1*2+3*4=　」
-    「　1,2*3,4*+　」 
-*/
-
 using namespace goblib::faces;
 
 namespace
 {
+constexpr size_t MAX_ENTRY_LENGTH = 10;
+
 bool existsFaces{};
 Calculator calc;
 
 String entry('0');
+bool arithmeticFlag{},enterFlag{};
 std::deque<float> entries;
 
 auto& lcd = M5.Display;
+
+bool entry2float(String& str, float& out)
+{
+    out = 0;
+
+    char* errpos{};
+    const char* s = str.c_str();
+    auto val = strtod(s, &errpos);
+
+    //M5_LOGV("[%p] [%p]", s, errpos);
+    if(errpos == s + strlen(s))
+    {
+        out = (float)val;
+        return true;
+    }
+
+    M5_LOGE("Illegal number string : [%s] err:%s", s, errpos);
+    return false;
 }
 
 // Functions
 void clearEntry()
 {
+    enterFlag = arithmeticFlag = false;
     entry = '0';
+    entry2float(entry, entries[0]);
 }
 
 void allClear()
 {
     entries.clear();
+    entries.push_front(0);
     clearEntry();
 }
 
 void enter()
 {
-    char* errpos{};
-    const char* s = entry.c_str();
-    auto val = strtof(s, &errpos);
+    float val{};
 
-    //M5_LOGI("[%p] [%p]", s, errpos);
-    
-    if(errpos == s + strlen(s))
+    if(entry2float(entry, val))
     {
-        clearEntry();
         M5_LOGI("push:%f", val);
         entries.push_front(val);
-    }
-    else
-    {
-        M5_LOGE("Illegal number string : [%s] err:%s", s, errpos);
+        arithmeticFlag = false;
+        enterFlag = true;
     }
 }
 
@@ -80,50 +92,70 @@ void sign()
 {
     if(entry.charAt(0) == '-') { entry.remove(0, 1); }
     else                       { entry = String('-') + entry; }
+    entry2float(entry, entries[0]);
 }
 
 void point()
 {
-    if(entry.indexOf('.') < 0) { entry += '.'; }
+    if(entry.indexOf('.') < 0) {
+        entry += '.';
+        entry2float(entry, entries[0]);
+    }
 }
 
 //
 template <class Functor> void arithmetic(Functor func)
 {
-    if(entries.empty()) { return; }
+    if(entries.size() < 2) { return; }
 
-    enter();
-    auto res = func(entries[1], entries[0]);
-    M5_LOGI("arithmetic %f any %f", entries[1], entries[0]);
+    float res = func(entries[1], entries[0]);
+    M5_LOGI("arithmetic %f and %f", entries[1], entries[0]);
 
     entries.pop_front();
     entries.pop_front();
 
-    entry = String(res);
+    entries.push_front(res);
+    char buf[MAX_ENTRY_LENGTH * 2];
+    snprintf(buf, sizeof(buf), "%f", res);
+    buf[sizeof(buf)-1] = '\0';
+    entry = buf;
+    M5_LOGI("result:%f [%s]", res, entry.c_str());
+    
+    arithmeticFlag = true;
+    enterFlag = false;
 }
 
 //
 void disp()
 {
 
-    lcd.setCursor(0,0);
+    lcd.setTextSize(2);
+    lcd.setCursor(0,lcd.height()/2);
     lcd.printf("%s", entry.c_str());
 
-    // Show the top two on the stack.
-    int32_t y = 26 * 2;
+    // stack information
+    lcd.setTextSize(0.5);
+    int32_t y = lcd.height()/2 - 13*2;
     lcd.setCursor(0,y);
     lcd.printf("Stack: %zu", entries.size());
-    y += 26;
+    y -= 13;
 
-    auto sz = entries.size();
-    if(sz > 2) { sz = 2; }
-    for(decltype(sz) i = 0; i < sz; ++i)
+    uint32_t sz = entries.size();
+    if(sz > 4) { sz = 4; }
+    for(uint32_t i = 0; i < sz; ++i)
     {
         lcd.setCursor(0,y);
-        lcd.printf(" %f", entries[i]);
-        y += 26;
+        lcd.printf("[%u]: %f", i, entries[i]);
+        y -= 13;
     }
+
+    #if 0
+    lcd.setCursor(0, lcd.height() - 13*2);
+    lcd.printf("aflag:%d eflag:%d", arithmeticFlag, enterFlag);
+    #endif
 }
+
+}//namespace
 
 //
 void setup()
@@ -144,6 +176,7 @@ void setup()
     lcd.clear(0);
     calc.begin();
 
+    allClear();
     disp();
 }
 
@@ -156,7 +189,8 @@ void loop()
 
     // Something was entered.
     auto in = calc.now();
-    M5_LOGI("%02x", in);
+    //M5_LOGI("%02x", in);
+
     // Function
     if(calc.isFunction())
     {
@@ -172,20 +206,33 @@ void loop()
         case Calculator::Button::MUL:         arithmetic([](float a, float b) { return a * b; }); break;
         case Calculator::Button::DIV:         arithmetic([](float a, float b) { return a / b; }); break;
         }
-        lcd.clear();
     }
     // Number
     else
     {
-        if(entry.toInt() == 0 && entry.indexOf('.') < 0)
+        if(arithmeticFlag) { enter(); clearEntry(); }
+        if(enterFlag) { clearEntry(); }
+
+        if(entry.length() < MAX_ENTRY_LENGTH)
         {
-            if(in != 0) { entry.replace('0', (char)(in + '0')); }
-        }
-        else
-        {
-            entry += (char)(in + '0');
+            // If entry is zero and no decimal point?
+            if(entry.toInt() == 0 && entry.indexOf('.') < 0)
+            {
+                // input 1-9?
+                if(in != 0)
+                {
+                    entry.replace('0', (char)(in + '0'));
+                }
+            }
+            else
+            {
+            
+                entry += (char)(in + '0');
+            }
+            entry2float(entry, entries[0]);
         }
     }
 
+    lcd.clear();
     disp();
 }
