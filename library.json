@@ -1,0 +1,25 @@
+{
+    "name": "gob_faces",
+    "description": "Get M5Stack Faces status (Keyboard / Calculator / Gamepad) without Arduino Wire.",
+    "keywords": "M5Stack,Faces",
+    "authors": {
+        "name": "GOB",
+        "url": "https://github.com/GOB52",
+        "maintainer": true
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/GOB52/gob_faces.git"
+    },
+    "version": "0.0.0",
+    "build": {
+        "libArchive": false
+    },
+    "headers": "gob_faces.hpp",
+    "license": "MIT",
+    "platforms": "espressif32",
+    "frameworks": "arduino",
+    "dependencies": {
+        "M5Unified": "*"
+    }
+}
