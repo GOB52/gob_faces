@@ -18,6 +18,11 @@
 #include <cstdint>
 #include <type_traits>
 #include <array>
+#if __has_include(<SDL2/SDL.h>)
+#include <SDL2/SDL_events.h>
+#include <SDL2/SDL_gamecontroller.h>
+#include <mutex>
+#endif
 
 /*!
   @namespace goblib
@@ -33,11 +38,9 @@ namespace goblib
 
 namespace faces
 {
-
-
 /*!
-  @brief Does faces exists?
-    @warning The type of faces cannot be identified.
+  @brief Does any faces exists?
+  @warning The type of faces cannot be identified.
   @retval true Exists
   @retval false Not exists.
 */
@@ -47,7 +50,7 @@ bool exists();
 /*!
   @class Face
   @brief Base class of 3 faces.
-  @note Raw data acquisition only.
+  @warning Do not use this class directly, Please use a derived class.
  */
 class Face
 {
@@ -62,15 +65,20 @@ class Face
     Face(){}
     virtual ~Face(){}
 
-    bool _init{};
-    bool _available{};
     uint8_t _raw{};
+    bool _began{}, _available{};
+
+#if __has_include(<SDL2/SDL.h>)
+    bool _input{};
+    char _ch{};
+    std::mutex _mtx{};
+#endif
 };
 
 
 /*!
   @class Keyboard
-  @brief For Keyboard (QWERTY).
+  @brief For Keyboard
   @note When the ENTER key is pressed, the firmware returns 0x0d(CR) and 0x0a(LF), but they are treated as 0x0a(LF).
   @warning ESC cannot be obtained with the default firmware.
  */
@@ -79,7 +87,15 @@ class Keyboard : public Face
   public:
     Keyboard() : Face() {}
     virtual ~Keyboard() {}
+
+    virtual bool begin() override;
     virtual void update() override;
+
+  protected:
+#if __has_include(<SDL2/SDL.h>)
+    static int sdl_event_filter_keyboard(void* arg, SDL_Event *event);
+    virtual void _sdl_event_filter_keyboard(SDL_Event *event);
+#endif
 };
 
 
@@ -115,13 +131,20 @@ class Calculator : public Face
 
     Calculator() : Face() {}
     ~Calculator() {}
+    virtual bool begin() override;
     virtual void update() override;
 
     inline uint8_t now()     const { return _now; } //!< @brief Gets the modified value(0~9) or enum Button.
     inline bool isFunction() const { return now() & FUNCTION_BIT; } //!< @brief Is function button?
     
   private:
-    uint8_t _now{(uint8_t)-1};
+    uint8_t _now{};
+
+#if __has_include(<SDL2/SDL.h>)
+  protected:
+    static int sdl_event_filter_calculator(void* arg, SDL_Event *event);
+    virtual void _sdl_event_filter_calculator(SDL_Event *event);
+#endif
 };
 
 
@@ -207,8 +230,17 @@ class Gamepad : public Face
 
     Gamepad() : Face() { _repeatCycle.fill(DEFAULT_REPEAT_CYCLE); }
     ~Gamepad(){}
+    virtual bool begin() override;
     virtual void update() override;
 
+#if __has_include(<SDL2/SDL.h>)
+  protected:
+    static int sdl_event_filter_gamepad(void* arg, SDL_Event *event);
+    virtual void _sdl_event_filter_gamepad(SDL_Event *event);
+    int _joyIndex{-1};
+    static std::array<Button,SDL_CONTROLLER_BUTTON_MAX> buttonMap;
+#endif
+    
   private:
     Bits _now{}, _last{}, _edge{}, _edge_r{}, _repeat{};
     Bits _enableRepeat{MASK_BUTTON}; // Enabled software repeat only for buttons by default.
@@ -216,6 +248,7 @@ class Gamepad : public Face
     static constexpr uint8_t DEFAULT_REPEAT_CYCLE = 4;
     std::array<uint8_t, 8> _repeatCount{};
     std::array<uint8_t, 8> _repeatCycle{};
+    //unsigned long millis();
 };
 
 }}
