@@ -1,4 +1,4 @@
-# Gamepad
+# Keyboard
 
 [日本語](README.md)
 
