@@ -2,6 +2,7 @@
 
 [日本語](README.md)
 
+This is example of using M5Stack Faces Calculator.
 
 ## What is the RPN Calculator?
 It is a calculator based on [Reverse Polish notation](https://en.wikipedia.org/wiki/Reverse_Polish_notation).
