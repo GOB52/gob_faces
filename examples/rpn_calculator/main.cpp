@@ -1,6 +1,5 @@
-
 /*
-  RPN(Reverse Polish notation) Calculator example with gob_faces.
+  Example using gob_face in the RPN (Reverse Polish Notation) calculator.
 
   See also https://en.wikipedia.org/wiki/Reverse_Polish_notation
 
@@ -24,7 +23,14 @@
 #include <gob_faces.hpp>
 #include <deque>
 #include <cstdlib>
+
+#if defined(ARDUINO)
 #include <WString.h>
+using string_t = String;
+#else
+#include <string>
+using string_t = std::string;
+#endif
 
 using namespace goblib::faces;
 
@@ -35,13 +41,42 @@ constexpr size_t MAX_ENTRY_LENGTH = 10;
 bool existsFaces{};
 Calculator calc;
 
-String entry('0');
+string_t entry("0");
 bool arithmeticFlag{},enterFlag{};
 std::deque<float> entries;
 
 auto& lcd = M5.Display;
 
-bool entry2float(String& str, float& out)
+inline void eraseString(string_t& str, const size_t pos, const size_t npos)
+{
+#if defined(ARDUINO)
+    str.remove(pos, npos);
+#else
+    str.erase(pos, npos);
+#endif
+}
+
+inline int indexOfString(const string_t& str, int ch)
+{
+#if defined(ARDUINO)
+    return str.indexOf(ch);
+#else
+    auto res = str.find(ch);
+    return res != std::string::npos ? res : -1;
+#endif
+}
+
+inline int32_t string2int(const string_t& str)
+{
+#if defined(ARDUINO)
+    return str.toInt();
+#else
+    return stoi(str);
+#endif
+}
+
+
+bool entry2float(string_t& str, float& out)
 {
     out = 0;
 
@@ -90,14 +125,16 @@ void enter()
 
 void sign()
 {
-    if(entry.charAt(0) == '-') { entry.remove(0, 1); }
-    else                       { entry = String('-') + entry; }
+    if(entry[0] == '-') { eraseString(entry, 0, 1);      }
+    else                { entry = string_t("-") + entry; }
     entry2float(entry, entries[0]);
 }
 
 void point()
 {
-    if(entry.indexOf('.') < 0) {
+    M5_LOGI("[%s] %d", entry.c_str(), indexOfString(entry, '.'));
+    if(indexOfString(entry, '.') < 0)
+    {
         entry += '.';
         entry2float(entry, entries[0]);
     }
@@ -162,8 +199,7 @@ void setup()
 {
     M5.begin();
     lcd.setFont(&fonts::Font4); // Height 26 pixel 
-    
-    lcd.clear(TFT_DARKGREY);
+
     existsFaces = goblib::faces::exists();
 
     if(!existsFaces)
@@ -182,7 +218,7 @@ void setup()
 
 void loop()
 {
-    if(!existsFaces) { delay(1000); return; }
+    if(!existsFaces) { return; }
 
     calc.update();
     if(!calc.available()) { return; }
@@ -216,12 +252,12 @@ void loop()
         if(entry.length() < MAX_ENTRY_LENGTH)
         {
             // If entry is zero and no decimal point?
-            if(entry.toInt() == 0 && entry.indexOf('.') < 0)
+            if(string2int(entry) == 0 && indexOfString(entry, '.') < 0)
             {
                 // input 1-9?
                 if(in != 0)
                 {
-                    entry.replace('0', (char)(in + '0'));
+                    entry = (char)(in + '0');
                 }
             }
             else
@@ -236,3 +272,22 @@ void loop()
     lcd.clear();
     disp();
 }
+
+#if defined ( SDL_h_ )
+__attribute__((weak)) int user_func(bool* running)
+{
+  setup();
+  do
+  {
+    loop();
+  } while (*running);
+  return 0;
+}
+
+int main(int, char**)
+{
+  // The second argument is effective for step execution with breakpoints.
+  // You can specify the time in milliseconds to perform slow execution that ensures screen updates.
+  return lgfx::Panel_sdl::main(user_func, 128);
+}
+#endif
