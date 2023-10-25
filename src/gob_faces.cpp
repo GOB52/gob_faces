@@ -375,6 +375,7 @@ bool Gamepad::begin()
 void Gamepad::update()
 {
     _last = _now;
+    auto lastHold = _hold;
     Face::update();
 
 #if defined(SDL_h_)
@@ -430,7 +431,6 @@ void Gamepad::update()
         // Hold?
         if((_now & k) && ms - _holdStart[i] >= _holdTH[i])
         {
-            _holdEdge = (_hold ^ _now) & _now;
             _hold |= k;
         }
         else
@@ -438,6 +438,7 @@ void Gamepad::update()
             _hold &= ~k;
         }
     }
+    _holdEdge = (lastHold ^ _hold) & _hold;
 }
 
 #if defined(SDL_h_)
