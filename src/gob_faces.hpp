@@ -85,6 +85,21 @@ class Face
 class Keyboard : public Face
 {
   public:
+    /*! @enum Special Key Codes */
+    enum Code : uint8_t
+    {
+        Delete = 0x7F,   //!< @brief Delete [sym - BS]
+        Insert = 0xB8,   //!< @berif Insert [Fn - L]
+        Home = 0xBB,     //!< @brief Home [Fn - X]
+        End = 0xBC,      //!< @brief End [Fn - C]
+        Pageup = 0xBD,   //!< @brief [Fn - V]
+        Pagedown = 0xBE, //!< @brief [Fn - B]
+        Up = 0xB7,       //!< @brief Up [Fn - K]
+        Down = 0xC0,     //!< @brief Down [Fn - M]
+        Left = 0xBF,     //!< @brief [Fn - N]
+        Right = 0xC1,    //!< @brief [Fn - $]
+    };
+
     Keyboard() : Face() {}
     virtual ~Keyboard() {}
 
@@ -206,21 +221,21 @@ class Gamepad : public Face
 
     /// @name Holding related
     /// @{
-    /*! @brief Gets the time considered as hold. (ms) */
+    /*! @brief Gets the threshold time considered as hold. (ms) */
     unsigned long getHoldTH(const Button btn) const;
-    /*! @brief Sets the time considered as hold. (ms) */
+    /*! @brief Sets the threshold time considered as hold. (ms) */
     void setHoldTH(const Button btn, unsigned long ms);
-    /*! @brief Sets the time considered as hold to all buttons. (ms) */
+    /*! @brief Sets the threshold time considered as hold to all buttons. (ms) */
     inline void setHoldTH(unsigned long ms) { _holdTH.fill(ms); }
     /// @}
     
     /// @name Software repeat related.
     /// @{
-    /*! @brief Gets the time considered as repeat. (ms) */
+    /*! @brief Gets the threshold time considered as repeat. (ms) */
     unsigned long getRepeatTH(const Button btn) const;
-    /*! @brief Sets the time considered as repeat. (ms) */
+    /*! @brief Sets the threshold time considered as repeat. (ms) */
     void setRepeatTH(const Button btn, unsigned long ms);
-    /*! @brief Sets the time considered as repeat to all buttons. (ms) */
+    /*! @brief Sets the threshold time considered as repeat to all buttons. (ms) */
     inline void setRepeatTH(unsigned long ms) { _repeatTH.fill(ms); }
     /// @}
 

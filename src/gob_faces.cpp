@@ -148,19 +148,19 @@ void Keyboard::_sdl_event_filter_keyboard( SDL_Event *event)
         switch(event->key.keysym.sym)
         {
         case SDLK_RETURN:    _ch = '\n'; break; // Enter
-        case SDLK_ESCAPE:    _ch = 0x0B; break; // ESC (Faces default firmware never send it!)
-        case SDLK_BACKSPACE: _ch = 0x08; break; // Backspace
-        case SDLK_DELETE:    _ch = 0x7F; break; // Delete
-        case SDLK_INSERT:    _ch = 0xB8; break; // Insert
-        case SDLK_TAB:       _ch = 0x08; break; // Tab
-        case SDLK_HOME:      _ch = 0xBB; break; // Home
-        case SDLK_END:       _ch = 0xBC; break; // End
-        case SDLK_PAGEUP:    _ch = 0xBD; break; // Page up
-        case SDLK_PAGEDOWN:  _ch = 0xBE; break; // Page down
-        case SDLK_UP:        _ch = 0xB7; break; // Up 
-        case SDLK_LEFT:      _ch = 0xBF; break; // Left
-        case SDLK_DOWN:      _ch = 0xC0; break; // Down
-        case SDLK_RIGHT:     _ch = 0xC1; break; // Right
+        case SDLK_ESCAPE:    _ch = '\033'; break; // ESC (Faces default firmware never send it!)
+        case SDLK_BACKSPACE: _ch = '\b'; break; // Backspace
+        case SDLK_DELETE:    _ch = Code::Delete; break; // Delete
+        case SDLK_INSERT:    _ch = Code::Insert; break; // Insert
+        case SDLK_TAB:       _ch = '\t'; break; // Tab
+        case SDLK_HOME:      _ch = Code::Home; break; // Home
+        case SDLK_END:       _ch = Code::End; break; // End
+        case SDLK_PAGEUP:    _ch = Code::Pageup; break; // Page up
+        case SDLK_PAGEDOWN:  _ch = Code::Pagedown; break; // Page down
+        case SDLK_UP:        _ch = Code::Up; break; // Up 
+        case SDLK_LEFT:      _ch = Code::Left; break; // Left
+        case SDLK_DOWN:      _ch = Code::Down; break; // Down
+        case SDLK_RIGHT:     _ch = Code::Right; break; // Right
         // Reject some scancode
         // When you press the alphanumeric/kana key, SLDK_SPACE is returned. (Japanese S-SIS keyboard on Mac)
         case SDLK_SPACE:
