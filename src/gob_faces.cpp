@@ -11,11 +11,8 @@ using std::string;
 #endif
 
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
-# pragma message "Windows"
 #elif defined(__APPLE__)
-# pragma message "Mac"
 #else
-# pragma message "Others"
 #endif
 
 namespace
@@ -32,6 +29,7 @@ template <typename T> constexpr typename std::underlying_type<T>::type to_underl
     return static_cast<typename std::underlying_type<T>::type>(e);
 }
 
+#if defined(SDL_h_)
 // Gets the last character of UTF-8 string.
 string getLastUtf8Charcter(string& s)
 {
@@ -40,6 +38,7 @@ string getLastUtf8Charcter(string& s)
     while(--cp >= s.data() && (*cp & 0b10000000) && !(*cp & 0b01000000)) ;
     return cp >= s.data() ? string(cp) : string();
 }
+#endif
 //
 }
 
@@ -53,10 +52,7 @@ bool exists()
     M5_LOGI("SDL numKey:%d joys:%d", numKeys, SDL_NumJoysticks());
     return keyState && numKeys > 0 ||  SDL_NumJoysticks() > 0;
 #else
-    bool e = M5.In_I2C.writeRegister8(I2C_ADDRESS, I2C_REG, 0/*dummy data*/, I2C_FREQ); // Exists if write successful.
-    // Read and dismiss stored data
-    while(M5.In_I2C.readRegister8(I2C_ADDRESS, I2C_REG, I2C_FREQ)) ;
-    return e;
+    return M5.In_I2C.writeRegister8(I2C_ADDRESS, I2C_REG, 0/*dummy data*/, I2C_FREQ); // Exists if write successful.
 #endif
 }
 
@@ -379,8 +375,8 @@ bool Gamepad::begin()
 void Gamepad::update()
 {
     _last = _now;
-
     Face::update();
+
 #if defined(SDL_h_)
     if(_joyIndex >= 0)
     {
@@ -388,7 +384,7 @@ void Gamepad::update()
         if(ctrl)
         {
             _available = true;
-            _raw = 0xff;
+            _raw = ~0;;
             int btn{0};
             for(auto& b : buttonMap)
             {
@@ -401,33 +397,45 @@ void Gamepad::update()
 
     if(available())
     {
-        _now = _raw ^ 0xff; // Invert it so that only the one being pushed is in a state where the bit is standing.
+        _now = _raw ^ ~0; // Invert it so that only the one being pushed is in a state where the bit is standing.
         M5_LOGV("%02x / %02x", _raw, _now);
     }
+    _available = true; // Always!
 
     // Detect press/release edge
     _edge = (_last ^ _now) & _now;
-    _edge_r = (_last ^ _now) & ~_now;
+    _releaseEdge = (_last ^ _now) & ~_now;
 
-    // Software repeat
-    uint8_t k = 1;
-    for(size_t i = 0; i < _repeatCount.size(); ++i, k <<= 1)
+    Bits k = 1;
+    auto ms = M5.millis();
+    for(size_t i = 0; i < NUMBER_OF_BUTTONS; ++i, k <<= 1)
     {
-        if((_enableRepeat & k) == 0) { continue; }
+        // Press
         if(_edge & k)
         {
-            _repeatCount[i] = _repeatCycle[i];
+            _repeatStart[i] = _holdStart[i] = ms;
             _repeat |= k;
             continue;
         }
-        if((_now & k) && _repeatCount[i]-- == 0)
+        // Repeat?
+        if((_now & k) && ms - _repeatStart[i] >= _repeatTH[i])
         {
-            _repeatCount[i] = _repeatCycle[i];
+            _repeatStart[i] = ms;
             _repeat |= k;
         }
         else
         {
             _repeat &= ~k;
+        }
+        // Hold?
+        if((_now & k) && ms - _holdStart[i] >= _holdTH[i])
+        {
+            _holdEdge = (_hold ^ _now) & _now;
+            _hold |= k;
+        }
+        else
+        {
+            _hold &= ~k;
         }
     }
 }
@@ -479,51 +487,51 @@ std::array<Gamepad::Button,SDL_CONTROLLER_BUTTON_MAX>  Gamepad::buttonMap =
 };
 #endif
 
-bool Gamepad::isEnableRepeat(const Button btn) const
-{
-    return to_underlying(btn) & _enableRepeat;
-}
-
-void Gamepad::enableRepeat(const Button btn, const bool enable)
-{
-    if(enable)
-    {
-        _enableRepeat |= to_underlying(btn);
-    }
-    else
-    {
-        _enableRepeat &= ~to_underlying(btn);
-    }
-}
-
-std::uint8_t Gamepad::getRepeatCycle(const Button btn) const
+unsigned long Gamepad::getHoldTH(const Button btn) const
 {
     auto idx = __builtin_ffs(to_underlying(btn));
-    if(idx > 0 && idx < _repeatCount.size())
-    {
-        return _repeatCycle[idx - 1];
-    }
-    M5_LOGE("btn %x is unexpected.", btn);
-    return 0;
-}
-
-void Gamepad::setRepeatCycle(const Button btn, const uint8_t cycle)
-{
-    auto mask = ~to_underlying(btn);
-    _now &= mask;
-    _edge &= mask;
-    _edge_r &= mask;
-    _repeat &= mask;
-
-    auto idx = __builtin_ffs(to_underlying(btn));
-    if(idx > 0 && idx < _repeatCount.size())
-    {
-        _repeatCycle[idx - 1] = cycle;
-    }
-    else
+    if(idx <= 0 || idx > _repeatTH.size())
     {
        M5_LOGE("btn %x is unexpected.\n", btn);
+       return 0;
     }
+    return _holdTH[--idx];
 }
 
+void Gamepad::setHoldTH(const Button btn, unsigned long ms)
+{
+    auto idx = __builtin_ffs(to_underlying(btn));
+    if(idx <= 0 || idx > _repeatTH.size())
+    {
+       M5_LOGE("btn %x is unexpected.\n", btn);
+       return;
+    }
+    --idx;
+    _holdTH[idx] = ms;
+}
+
+unsigned long Gamepad::getRepeatTH(const Button btn) const
+{
+    auto idx = __builtin_ffs(to_underlying(btn));
+    if(idx <= 0 || idx > _repeatTH.size())
+    {
+       M5_LOGE("btn %x is unexpected.\n", btn);
+       return 0;
+    }
+    return _repeatTH[--idx];
+}
+
+void Gamepad::setRepeatTH(const Button btn, unsigned long ms)
+{
+    auto idx = __builtin_ffs(to_underlying(btn));
+    if(idx <= 0 || idx > _repeatTH.size())
+    {
+       M5_LOGE("btn %x is unexpected.\n", btn);
+       return;
+    }
+    --idx;
+    _repeatTH[idx] = ms;
+}
+
+//
 }}

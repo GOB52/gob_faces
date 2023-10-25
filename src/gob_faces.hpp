@@ -171,26 +171,26 @@ class Gamepad : public Face
         Select =    0x40,   //!< Select (system button)
         Start =     0x80,   //!< Start (system button)
     };
+    static constexpr size_t NUMBER_OF_BUTTONS = 8;
     using Bits = std::underlying_type<Button>::type;
     
     /// @name Mask for button
     /// @{
-    static constexpr Bits MASK_CROSS = (Button::Up | Button::Down | Button::Left | Button::Right);
-    static constexpr Bits MASK_BUTTON = (Button::A | Button::B);
-    static constexpr Bits MASK_SYSTEM = (Button::Select | Button::Start);
-    static constexpr Bits MASK_ALL = (MASK_CROSS | MASK_BUTTON | MASK_SYSTEM);
+    static constexpr Bits MASK_CROSS = (Button::Up | Button::Down | Button::Left | Button::Right); //!< @brief Cross buttons.
+    static constexpr Bits MASK_BUTTON = (Button::A | Button::B); //!< @brief Buttons.
+    static constexpr Bits MASK_SYSTEM = (Button::Select | Button::Start); //!< @brief System buttons.
+    static constexpr Bits MASK_ALL = (MASK_CROSS | MASK_BUTTON | MASK_SYSTEM); //!< @brief All buttons.
     /// @}
 
     /// @name Properties
     /// @{
-    inline bool isPressed(const Bits& b) const {       return now()  & b; } //!< @brief Is pressed any?
-    inline bool isPressedEqual(const Bits& b) const {  return now() == b; } //!< @brief Is pressed only?
-    inline bool wasPressed(const Bits& b) const {      return edge()  & b; } //!< @brief Was pressed any?
-    inline bool wasPressedEqual(const Bits& b) const { return edge() == b; } //!< @brief Was pressed only?
-    inline bool wasReleased(const Bits& b) const {     return releaseEdge()  & b; } //!< @brief Was released any?
-    inline bool wasReleasedEqual(const Bits& b) const {return releaseEdge() == b; } //!< @brief Was released only?
-    inline bool wasRepeated(const Bits& b) const {     return repeat()  & b; } //!< @brief Was repeated any?
-    inline bool wasRepeatedEqual(const Bits& b) const {return repeat() == b; } //!< @brief Was repeated only?
+    inline bool isPressed(const Bits& b) const          { return now() & b; }          //!< @brief Is pressed any?
+    inline bool wasPressed(const Bits& b) const         { return edge()  & b; }        //!< @brief Was pressed any?
+    inline bool isReleased(const Bits& b) const         { return (now() & b) ==0; }    //!< @brief Is released any?
+    inline bool wasReleased(const Bits& b) const        { return releaseEdge()  & b; } //!< @brief Was released any?
+    inline bool isHolding(const Bits& b) const          { return hold() & b; }         //!< @brief Is holding any?
+    inline bool wasHold(const Bits& b) const            { return holdEdge() & b; }     //!< @brief Was hold any?
+    inline bool wasRepeated(const Bits& b) const        { return repeat() & b; }       //!< @brief Was repeated any?
     /// @}
 
     /// @name Gets the raw values
@@ -198,37 +198,33 @@ class Gamepad : public Face
     inline Bits now() const         { return _now; }
     inline Bits last() const        { return _last; }
     inline Bits edge() const        { return _edge; }
-    inline Bits releaseEdge() const { return _edge_r; }
+    inline Bits releaseEdge() const { return _releaseEdge; }
+    inline Bits hold() const        { return _hold; }
+    inline Bits holdEdge() const    { return _holdEdge; }
     inline Bits repeat() const      { return _repeat; }
     /// @}
 
-    /// @name Software repeat
+    /// @name Holding related
     /// @{
-    /*! @brief Is software repeat enabled for the specified button? */
-    bool isEnableRepeat(const Button btn) const;
-    /*! @brief Enable/disable software repeat for specified button. */
-    void enableRepeat(const Button btn, const bool enable);
-    /*! @brief Enable software repeat for specified button. */
-    inline void enableRepeat(const Button btn) { enableRepeat(btn, true); }
-    /*! @brief Disable software repeat for specified button. */
-    inline void disableRepeat(const Button btn) { enableRepeat(btn, false); }
+    /*! @brief Gets the time considered as hold. (ms) */
+    unsigned long getHoldTH(const Button btn) const;
+    /*! @brief Sets the time considered as hold. (ms) */
+    void setHoldTH(const Button btn, unsigned long ms);
+    /*! @brief Sets the time considered as hold to all buttons. (ms) */
+    inline void setHoldTH(unsigned long ms) { _holdTH.fill(ms); }
+    /// @}
     
-    /*! @brief Gets the repeat cycle of button */
-    uint8_t getRepeatCycle(const Button btn) const;
-    /*!
-      @brief Set software repeat cycle.
-      @param btn Target button
-      @param cycle Cycle
-      @note Cycle unit is per call update().
-    */
-    void setRepeatCycle(const Button btn, const uint8_t cycle);
-    /*! @brief Set software repeat cycle to all buttons */
-    void setRepeatCycleAll(const uint8_t cnt) { _repeatCycle.fill(cnt); }
-    /*! @brief Reset counter for repeat */
-    void resetRepeat() { _repeatCount.fill(0); }
+    /// @name Software repeat related.
+    /// @{
+    /*! @brief Gets the time considered as repeat. (ms) */
+    unsigned long getRepeatTH(const Button btn) const;
+    /*! @brief Sets the time considered as repeat. (ms) */
+    void setRepeatTH(const Button btn, unsigned long ms);
+    /*! @brief Sets the time considered as repeat to all buttons. (ms) */
+    inline void setRepeatTH(unsigned long ms) { _repeatTH.fill(ms); }
     /// @}
 
-    Gamepad() : Face() { _repeatCycle.fill(DEFAULT_REPEAT_CYCLE); }
+    Gamepad() : Face() { _repeatTH.fill(DEFAULT_REPEAT_MS); _holdTH.fill(DEFAULT_HOLD_MS); }
     ~Gamepad(){}
     virtual bool begin() override;
     virtual void update() override;
@@ -242,13 +238,12 @@ class Gamepad : public Face
 #endif
     
   private:
-    Bits _now{}, _last{}, _edge{}, _edge_r{}, _repeat{};
-    Bits _enableRepeat{MASK_BUTTON}; // Enabled software repeat only for buttons by default.
+    Bits _now{}, _last{}, _edge{}, _releaseEdge{}, _repeat{}, _hold{}, _holdEdge{};
 
-    static constexpr uint8_t DEFAULT_REPEAT_CYCLE = 4;
-    std::array<uint8_t, 8> _repeatCount{};
-    std::array<uint8_t, 8> _repeatCycle{};
-    //unsigned long millis();
+    static constexpr uint8_t DEFAULT_REPEAT_MS = 10;
+    static constexpr uint8_t DEFAULT_HOLD_MS = 100;
+    std::array<unsigned long, NUMBER_OF_BUTTONS> _repeatStart{}, _repeatTH{};
+    std::array<unsigned long, NUMBER_OF_BUTTONS> _holdStart{}, _holdTH{};
 };
 
 }}
