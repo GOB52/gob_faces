@@ -183,7 +183,7 @@ size_t getString(string_t& result, int maxcol, int x, int y)
 #if defined(DEBUG_COMMAND)
             if(col < maxcol && isalnum(ch)) { result += (char)ch; ++col; continue; }
 #else
-            if(col < maxcol && ch >= '0' && ch <= '9') { result += (char)ch; ++col; continue; }
+            if(col < maxcol && isdigit(ch)) { result += (char)ch; ++col; continue; }
 #endif
 
             if(ch == '\n') { break; }
@@ -438,6 +438,14 @@ void casualties(int en)
     damageMessage(dmg);
 }
 
+void drawAll()
+{
+    galaxyMap();
+    sectorMap();
+    report();
+    damageReport();
+}
+
 int command()
 {
 #define COMMAND_X (fwid)
@@ -470,10 +478,7 @@ int command()
         case 'N': ++damage[SPOT_TORPEDO]; break;
         case 'M': ++damage[SPOT_SHIELD]; break;
         case '<': repairAll(); break;
-        case '>': 
-
-
-
+        case '>': drawAll(); break;
         case 'A': energy = 4000; break;
         case 'S': for(auto& d : gmap) { d |= SHOW_MASK; }; break;
         case 'E':
@@ -1002,14 +1007,6 @@ int enemiesAttack()
         casualties(total);
     }
     return total;
-}
-
-void drawAll()
-{
-    galaxyMap();
-    sectorMap();
-    report();
-    damageReport();
 }
 
 void game_loop()
