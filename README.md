@@ -28,7 +28,7 @@ lib_deps = https://github.com/GOB52/gob_faces.git
 
 ###  Keyboard
 
-#### [keyboad](examples/keyboad)
+#### [keyboard](examples/keyboard)
 <img src="https://github.com/GOB52/gob_faces/assets/26270227/de252197-920e-4126-86a5-f950ea706950" width="320">
 
 #### [M5Strek](examples/M5Strek)
